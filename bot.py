@@ -10,29 +10,102 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# Логирование
+# ------------------------------
+# Настройка логирования
+# ------------------------------
 logging.basicConfig(level=logging.INFO)
 
 BOT_TOKEN = "7772821435:AAH2hHaxGi3hkrFmFUQp90pzCR0AvfZwWJc"  # Замените на реальный токен
 
-# --- Пример вопросов для теста (если нужны) ---
-ALL_QUESTIONS = [
-    {"text": "Ваш пол? (не влияет на итоговый балл)", "answers": [("М", 0), ("Ж", 0)]},
-    {"text": "Вы занимаетесь спортом?", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
-    {"text": "Я испытываю ужас при мысли об избыточном весе", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
-    {"text": "Я избегаю приём пищи, когда голоден(а)", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
-    {"text": "Меня часто преследуют мысли о похудении", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
-    # ... остальные вопросы ...
-]
+# ID пользователей, которым разрешён просмотр статистики (например, ваш ID)
+OWNER_IDS = {722657576, 1876129670}
 
-# Добавляем сопоставление диапазона баллов с фото
-RESULT_PHOTOS = {
-    "low": "heartcat.jpg",       # для score <= 60
-    "medium": "dog.jpg",         # для score <= 80
-    "high": "stepa.jpg",         # для score <= 124
-    "critical": "stepa.jpg"      # для score >= 125
+# ------------------------------
+# Глобальная статистика бота
+# ------------------------------
+bot_stats = {
+    "messages": 0,
+    "users": set(),
+    "test_results": {
+        "low": 0,
+        "medium": 0,
+        "high": 0,
+        "critical": 0
+    }
 }
 
+# ------------------------------
+# Пример вопросов для теста
+# ------------------------------
+ALL_QUESTIONS = [
+    {"text": "Ваш пол? (этот вопрос должен оцениваться 0)", "answers": [("М", 0), ("Ж", 0)]},
+    {"text": "Вы занимаетесь спортом", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я испытываю ужас при мысли об избыточном весе",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я избегаю приём пищи, когда голодна",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я сильно озабочен(а) вопросами еды",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "У меня были эпизоды переедания и меня тошнило",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я ем маленькими порциями", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я знаю количество калорий в еде, которую ем",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я избегаю еду с большим содержанием углеводов",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Мне часто говорят, что я мало ем",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я часто заедаю стресс", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "У меня бывает рвота после еды", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я испытываю вину после съеденной еды",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Меня часто преследуют мысли о похудении",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я хожу в зал, чтобы отработать съеденные калории",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я часто слышу, что мне нужно набрать вес",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "У меня есть ощущение, что другие заставляют меня принимать пищу",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "В детстве меня дразнили из-за веса",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я часто следую диетам, чтобы похудеть",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я люблю вкусно поесть", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Новые дорогие продукты доставляют мне удовольствие",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я предпочитаю, чтобы мой желудок был пуст",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "В детстве Вы занимались танцами/спортом, и Вам нужно было следить за весом",
+     "answers": [("Да", 4), ("Скорее да", 3), ("Скорее нет", 2), ("Нет", 1)]},
+    {"text": "У меня были мысли о суициде", "answers": [("Да", 4), ("Скорее да", 3), ("Скорее нет", 2), ("Нет", 1)]},
+    {"text": "Я принимал(а) антидепрессанты", "answers": [("Да", 4), ("Скорее да", 3), ("Скорее нет", 2), ("Нет", 1)]},
+    {"text": "Я часто переживаю из-за пустяков",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я часто чувствую дискомфорт на учёбе/работе",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Мне сложно заснуть", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "У меня часто мысли в голове перед сном, которые мешают заснуть",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я очень боюсь возможных неудач", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Я чувствую себя ненужным (ой)", "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+    {"text": "Мне порой кажется, что ничего не стою",
+     "answers": [("Всегда", 4), ("Иногда", 3), ("Редко", 2), ("Никогда", 1)]},
+]
+
+RESULT_PHOTOS = {
+    "low": "heartcat.jpg",  # для score <= 60
+    "medium": "dog.jpg",  # для score <= 80
+    "high": "stepa.jpg",  # для score <= 124
+    "critical": "stepa.jpg"  # для score >= 125
+}
+
+PHOTO_CACHE = {}
+
+
+# ------------------------------
+# Функции для теста
+# ------------------------------
 def get_test_result_text(score: float) -> str:
     if score <= 60:
         return "✅ 0–60 баллов: Поздравляем! У вас отличные отношения с едой."
@@ -42,6 +115,7 @@ def get_test_result_text(score: float) -> str:
         return "🚨 80-124 баллов: Возможно, вам стоит обратиться к специалисту."
     else:
         return "❗ 125+ баллов: У вас серьёзные проблемы с пищевым поведением."
+
 
 def get_result_photo_path(score: float) -> str:
     if score <= 60:
@@ -53,14 +127,25 @@ def get_result_photo_path(score: float) -> str:
     else:
         return RESULT_PHOTOS["critical"]
 
+
 def get_main_menu():
     return ReplyKeyboardMarkup(
         [["Пройти тест ✍️", "Информация о РПП 📖"], ["Питание 🍽️", "О нас ℹ️"]],
         resize_keyboard=True,
     )
 
-# --- Функция для кеширования и отправки фото ---
-PHOTO_CACHE = {}
+
+def get_result_category(score: float) -> str:
+    """Определяет категорию для статистики: low, medium, high, critical."""
+    if score <= 60:
+        return "low"
+    elif score <= 80:
+        return "medium"
+    elif score <= 124:
+        return "high"
+    else:
+        return "critical"
+
 
 async def send_cached_photo(bot, chat_id, image_path, caption):
     if image_path in PHOTO_CACHE:
@@ -71,16 +156,58 @@ async def send_cached_photo(bot, chat_id, image_path, caption):
             message = await bot.send_photo(chat_id=chat_id, photo=photo_file, caption=caption)
         PHOTO_CACHE[image_path] = message.photo[-1].file_id
 
-# --- Функция для отправки тестового вопроса ---
+
+# ------------------------------
+# Статистика
+# ------------------------------
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Команда /stats — показывает статистику, доступно только OWNER_IDS."""
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    if user_id not in OWNER_IDS:
+        await context.bot.send_message(chat_id=chat_id, text="У вас нет прав для просмотра статистики.")
+        return
+
+    num_messages = bot_stats["messages"]
+    num_users = len(bot_stats["users"])
+    test_results = bot_stats["test_results"]
+    text = (
+        f"Статистика бота:\n"
+        f"Всего сообщений: {num_messages}\n"
+        f"Уникальных пользователей: {num_users}\n\n"
+        f"Результаты теста:\n"
+        f"  Low: {test_results['low']}\n"
+        f"  Medium: {test_results['medium']}\n"
+        f"  High: {test_results['high']}\n"
+        f"  Critical: {test_results['critical']}"
+    )
+    await context.bot.send_message(chat_id=chat_id, text=text)
+
+
+# ------------------------------
+# Обновление статистики
+# ------------------------------
+async def update_stats_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обновляет статистику на любое входящее текстовое сообщение."""
+    chat_id = update.effective_chat.id
+    bot_stats["messages"] += 1
+    bot_stats["users"].add(chat_id)
+
+
+# ------------------------------
+# Отправка вопроса
+# ------------------------------
 async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message:
         chat_id = update.message.chat_id
     else:
         chat_id = update.callback_query.message.chat_id
+
     user_data = context.user_data[chat_id]
     question_index = user_data["question_index"]
     question = ALL_QUESTIONS[question_index]
-    text = f"Вопрос {question_index+1}/{len(ALL_QUESTIONS)}:\n{question['text']}"
+
+    text = f"Вопрос {question_index + 1}/{len(ALL_QUESTIONS)}:\n{question['text']}"
     buttons = [
         [InlineKeyboardButton(answer, callback_data=str(score))]
         for answer, score in question["answers"]
@@ -91,32 +218,58 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
-# --- Обработчик callback для тестовых вопросов ---
+
+# ------------------------------
+# Обработчик ответов теста (callback)
+# ------------------------------
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
     user_id = query.message.chat_id
     user_data = context.user_data[user_id]
+
     try:
-        score = float(query.data)
+        score_delta = float(query.data)
     except ValueError:
         return
-    user_data["score"] += score
+
+    user_data["score"] += score_delta
     user_data["question_index"] += 1
+
     await query.message.delete()
+
+    # Если тест закончен
     if user_data["question_index"] >= len(ALL_QUESTIONS):
         total_score = user_data["score"]
+        # Обновляем статистику результатов
+        category = get_result_category(total_score)
+        bot_stats["test_results"][category] += 1
+
         result_text = get_test_result_text(total_score)
+        photo_path = get_result_photo_path(total_score)
+        with open(photo_path, "rb") as photo_file:
+            await context.bot.send_photo(
+                chat_id=user_id,
+                photo=photo_file,
+                caption=f"✅ Тест завершён!\nВаш результат: {total_score} баллов\n\n{result_text}"
+            )
+        # Выводим главное меню
         await context.bot.send_message(
             chat_id=user_id,
-            text=f"✅ Тест завершён!\nВаш результат: {total_score} баллов\n\n{result_text}",
+            text="Выберите действие:",
             reply_markup=get_main_menu()
         )
     else:
+        # Иначе следующий вопрос
         await send_question(update, context)
 
-# --- Обработчик для расчёта калорий (ConversationHandler) ---
+
+# ------------------------------
+# ConversationHandler для расчёта калорий
+# ------------------------------
 STATE_GENDER, STATE_WEIGHT, STATE_HEIGHT, STATE_AGE = range(4)
+
 
 async def start_calculation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -125,16 +278,19 @@ async def start_calculation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Мужчина", callback_data="calc_male"),
          InlineKeyboardButton("Женщина", callback_data="calc_female")]
     ]
-    await query.edit_message_text("Выберите пол для расчёта нормы калорий:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text("Выберите пол для расчёта нормы калорий:",
+                                  reply_markup=InlineKeyboardMarkup(keyboard))
     return STATE_GENDER
+
 
 async def handle_gender(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    gender = query.data  # "calc_male" или "calc_female"
+    gender = query.data
     context.user_data["calc_gender"] = "male" if gender == "calc_male" else "female"
     await query.edit_message_text("Введите ваш вес в кг:")
     return STATE_WEIGHT
+
 
 async def handle_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -146,6 +302,7 @@ async def handle_weight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Введите ваш рост в см:")
     return STATE_HEIGHT
 
+
 async def handle_height(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         height = float(update.message.text)
@@ -155,6 +312,7 @@ async def handle_height(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["calc_height"] = height
     await update.message.reply_text("Введите ваш возраст:")
     return STATE_AGE
+
 
 async def handle_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -171,12 +329,17 @@ async def handle_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bmr = 88.36 + (13.4 * weight) + (4.8 * height) - (5.7 * age)
     else:
         bmr = 447.6 + (9.2 * weight) + (3.1 * height) - (4.3 * age)
-    await update.message.reply_text(f"Ваша базальная скорость метаболизма (BMR): {bmr:.2f} ккал/день.", reply_markup=get_main_menu())
+    await update.message.reply_text(
+        f"Ваша базальная скорость метаболизма (BMR): {bmr:.2f} ккал/день.",
+        reply_markup=get_main_menu()
+    )
     return ConversationHandler.END
+
 
 async def cancel_calculation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Расчёт отменён.", reply_markup=get_main_menu())
     return ConversationHandler.END
+
 
 calc_conv_handler = ConversationHandler(
     entry_points=[CallbackQueryHandler(start_calculation, pattern=r"^start_calc$")],
@@ -189,10 +352,12 @@ calc_conv_handler = ConversationHandler(
     fallbacks=[CommandHandler("cancel", cancel_calculation)]
 )
 
-# --- Команда /start ---
+
+# ------------------------------
+# Команда /start
+# ------------------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.chat_id
-    # Инициализируем данные для теста
     context.user_data[user_id] = {"score": 0, "question_index": 0}
     await update.message.reply_text(
         "👋 Привет! Этот бот помогает определить РПП и предоставляет полезную информацию о питании.\n\n"
@@ -200,8 +365,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=get_main_menu()
     )
 
-# --- Обработчик текстовых команд ---
+
+# ------------------------------
+# Основной обработчик текстовых команд
+# ------------------------------
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Сначала обновим статистику
+    await update_stats_text(update, context)
+
     user_text = update.message.text
     user_id = update.message.chat_id
 
@@ -261,7 +432,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Выберите одну из кнопок для продолжения.", reply_markup=get_main_menu())
 
-# --- Обработчик для показа полезных продуктов ---
+
+# ------------------------------
+# Обработчик для показа полезных продуктов
+# ------------------------------
 async def handle_show_products(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -283,15 +457,33 @@ async def handle_show_products(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     await context.bot.send_message(chat_id=user_id, text=products_text)
 
-# --- Регистрация обработчиков ---
+
+# ------------------------------
+# Функция main
+# ------------------------------
 def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(handle_show_products, pattern=r"^show_products$"))
-    application.add_handler(CallbackQueryHandler(handle_callback, pattern=r"^\d+(\.\d+)?$"))
+
+    # Регистрируем команду /stats для просмотра статистики
+    application.add_handler(CommandHandler("stats", stats))
+
+    # Регистрируем ConversationHandler для расчёта калорий
     application.add_handler(calc_conv_handler)
+
+    # Хэндлер для callback_data «show_products»
+    application.add_handler(CallbackQueryHandler(handle_show_products, pattern=r"^show_products$"))
+
+    # Хэндлер для callback_data с ответами теста
+    application.add_handler(CallbackQueryHandler(handle_callback, pattern=r"^\d+(\.\d+)?$"))
+
+    # Команда /start
+    application.add_handler(CommandHandler("start", start))
+
+    # Обработчик текстовых сообщений (обновляет статистику + меню)
     application.add_handler(MessageHandler(filters.TEXT, handle_text))
+
     application.run_polling()
+
 
 if __name__ == "__main__":
     main()
